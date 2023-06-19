@@ -17,16 +17,27 @@ function commitRoot() {
 function commitWork(fiber) {
   if(!fiber) return;
 
-  const domParent = fiber.parent.dom
+  let domParentFiber = fiber.parent
+  while (!domParentFiber.dom) {
+    domParentFiber = domParentFiber.parent
+  }
+  const domParent = domParentFiber.dom
   if(fiber.effectTag === 'PLACEMENT' && fiber.dom != null) {
     domParent.appendChild(fiber.dom)
   } else if (fiber.effectTag === 'UPDATE' && fiber.dom != null) {
     updateDom(fiber.dom, fiber.alternate.props, fiber.props)
   } else if (fiber.effectTag === 'DELETIONS' && fiber.dom != null) {
-    domParent.removeChild(fiber.dom)
+    commitDeletion(fiber, domParent)
   } 
   commitWork(fiber.child)
   commitWork(fiber.sibling)
+}
+function commitDeletion(fiber, domParent) {
+  if (fiber.dom) {
+    domParent.removeChild(fiber.dom)
+  } else {
+    commitDeletion(fiber.child, domParent)
+  }
 }
 function updateDom(dom, prevProps, nextProps) {
   // remove , update listener
@@ -69,28 +80,38 @@ function workLoop(deadline) {
 }
 // 执行任务单元，且返回下一个任务单元
 function performUnitOfWork (fiber) {
-  // 构建dom树
-  if(!fiber.dom) {
-    fiber.dom = createDom(fiber)
+  const isFunctionComponent = fiber.type instanceof Function
+  if (isFunctionComponent) {
+    updateFunctionComponent(fiber)
+  } else {
+    updateHostComponent(fiber)
   }
-  // diff current fiber wip fiber 树
-  const elements = fiber.props.children
-  reconcilerChildren(fiber, elements)
 
   // return fiber
-  if(fiber.child) {
+  if (fiber.child) {
     return fiber.child
   }
   let nextFiber = fiber
-  while(nextFiber) {
+  while (nextFiber) {
     if (nextFiber.sibling) {
       return nextFiber.sibling
     }
     nextFiber = nextFiber.parent
   }
-
 }
 requestIdleCallback(workLoop)
+
+function updateFunctionComponent(fiber) {
+  const children = [fiber.type(fiber.props)]
+  reconcilerChildren(fiber, children)
+}
+function updateHostComponent(fiber) {
+  // diff current fiber wip fiber 树
+  if (!fiber.dom) {
+    fiber.dom = createDom(fiber)
+  }
+  reconcilerChildren(fiber, fiber.props.children)
+}
 
 function reconcilerChildren(wipFiber, elements) {
   let index = 0
@@ -192,6 +213,8 @@ const Didact = {
   render
 }
 
+// 函数组件的 fiber 没有 DOM 节点
+// 并且子节点由函数运行得来而不是直接从 props 属性中获取
 /** @jsx Didact.createElement */
 function Counter() {
   const [state, setState] = Didact.useState(1)
@@ -201,9 +224,16 @@ function Counter() {
     </h1>
   )
 }
+function NormalFunction() {
+  return (
+    <h2 className="ddb" onClick={() => alert(2)}>
+      adadada
+    </h2>
+  )
+}
 const h1 = <h2 className="ddb" onClick={() => alert(2)}>adadada</h2>
 // const element = <Counter />
-const element = h1
-console.log(h1)
+// const element = h1
+const element = <NormalFunction/>
 const container = document.querySelector('#root')
 Didact.render(element, container)
