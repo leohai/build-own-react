@@ -1,9 +1,29 @@
+let nextUnitOfWork = null
+
+function workLoop(deadline) {
+  let shouldYeild = false
+  while(nextUnitOfWork && !shouldYeild) {
+    nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
+    shouldYeild = deadline.timeRemaining() < 1;
+  }
+  requestIdleCallback(workLoop)
+}
+// 执行任务单元，且返回下一个任务单元
+function performUnitOfWork () {
+  // TODO
+  console.log(333)
+
+}
+requestIdleCallback(workLoop)
+
 function render(element, container) {
+  // 1创建dom
   const dom =
     element.type == 'TEXT_ELEMENT'
       ? document.createTextNode('')
       : document.createElement(element.type)
 
+  // 添加dom属性
   const isProperty = key => key !== 'children'
 
    Object.keys(element.props)
@@ -11,9 +31,9 @@ function render(element, container) {
      .forEach((name) => {
        dom[name] = element.props[name]
      })
-  
+  // 递归子节点
   element.props.children.forEach((child) => render(child, dom))
-
+  // 添加到容器
   container.appendChild(dom)
 }
 
@@ -38,6 +58,8 @@ function createElement(type, props, ...children) {
     },
   }
 }
+
+
 
 const Didact = {
   createElement,
