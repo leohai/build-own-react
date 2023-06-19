@@ -1,10 +1,27 @@
 let nextUnitOfWork = null
+let wipRoot = null // 根fiber树
+
+function commitRoot() {
+  commitWork(wipRoot.child)
+  wipRoot = null
+}
+
+function commitWork(fiber) {
+  if(!fiber) return;
+  const domParent = fiber.parent.dom
+  domParent.appendChild(fiber.dom)
+  commitWork(fiber.child)
+  commitWork(fiber.sibling)
+}
 
 function workLoop(deadline) {
   let shouldYeild = false
   while(nextUnitOfWork && !shouldYeild) {
     nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
     shouldYeild = deadline.timeRemaining() < 1;
+  }
+  if (!nextUnitOfWork && wipRoot) {
+    commitRoot()
   }
   requestIdleCallback(workLoop)
 }
@@ -14,9 +31,9 @@ function performUnitOfWork (fiber) {
   if(!fiber.dom) {
     fiber.dom = createDom(fiber)
   }
-  if(fiber.parent) {
-    fiber.parent.dom.append(fiber.dom)
-  }
+  // if(fiber.parent) {
+  //   fiber.parent.dom.append(fiber.dom)
+  // }
   const elements = fiber.props.children
   let index = 0
   let preSibling = null
@@ -73,12 +90,13 @@ function createDom(element) {
 }
 
 function render(element, container) {
-  nextUnitOfWork = {
+  wipRoot= {
     props: {
-      children: [element]
+      children: [element],
     },
-    dom: container
+    dom: container,
   }
+  nextUnitOfWork = wipRoot
 }
 
 function createTextElement(text) {
