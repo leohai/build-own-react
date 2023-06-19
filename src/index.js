@@ -9,14 +9,51 @@ function workLoop(deadline) {
   requestIdleCallback(workLoop)
 }
 // 执行任务单元，且返回下一个任务单元
-function performUnitOfWork () {
-  // TODO
-  console.log(333)
+function performUnitOfWork (fiber) {
+  // 构建dom树
+  if(!fiber.dom) {
+    fiber.dom = createDom(fiber)
+  }
+  if(fiber.parent) {
+    fiber.parent.dom.append(fiber.dom)
+  }
+  const elements = fiber.props.children
+  let index = 0
+  let preSibling = null
+  // generate child fiber, add parent ,sibling
+  while (index < elements.length) {
+    const element = elements[index]
+    const newFiber = {
+      type: element.type,
+      props: element.props,
+      parent: fiber,
+      dom: null,
+    }
+    if (index === 0) {
+      fiber.child = newFiber
+    } else {
+      preSibling.sibling = fiber
+    }
+    preSibling = fiber
+    index ++;
+  }
+  
+  // return fiber
+  if(fiber.child) {
+    return fiber.child
+  }
+  let nextFiber = fiber
+  while(nextFiber) {
+    if (nextFiber.sibling) {
+      return nextFiber.sibling
+    }
+    nextFiber = nextFiber.parent
+  }
 
 }
 requestIdleCallback(workLoop)
 
-function render(element, container) {
+function createDom(element) {
   // 1创建dom
   const dom =
     element.type == 'TEXT_ELEMENT'
@@ -24,17 +61,24 @@ function render(element, container) {
       : document.createElement(element.type)
 
   // 添加dom属性
-  const isProperty = key => key !== 'children'
+  const isProperty = (key) => key !== 'children'
 
-   Object.keys(element.props)
-     .filter(isProperty)
-     .forEach((name) => {
-       dom[name] = element.props[name]
-     })
-  // 递归子节点
-  element.props.children.forEach((child) => render(child, dom))
-  // 添加到容器
-  container.appendChild(dom)
+  Object.keys(element.props)
+    .filter(isProperty)
+    .forEach((name) => {
+      dom[name] = element.props[name]
+    })
+
+  return dom
+}
+
+function render(element, container) {
+  nextUnitOfWork = {
+    props: {
+      children: [element]
+    },
+    dom: container
+  }
 }
 
 function createTextElement(text) {
